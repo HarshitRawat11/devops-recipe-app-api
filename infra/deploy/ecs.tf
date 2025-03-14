@@ -30,13 +30,12 @@ resource "aws_iam_role" "app_task" {
 }
 
 resource "aws_iam_role_policy_attachment" "task_execution_role" {
-  role       = aws_iam_role.app-task.name
+  role       = aws_iam_role.app_task.name
   policy_arn = aws_iam_policy.task_ssm_policy.arn
 }
 
 resource "aws_cloudwatch_log_group" "ecs_task_logs" {
   name = "${local.prefix}-api"
-
 }
 
 resource "aw_ecs_cluster" "main" {
