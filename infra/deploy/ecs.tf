@@ -29,7 +29,7 @@ resource "aws_iam_role" "app_task" {
   assume_role_policy = file(".templates/ecs/task-assume-role-policy.json")
 }
 
-resource "aws_iam_role_policy_attachment" "task_execution_role" {
+resource "aws_iam_role_policy_attachment" "task_ssm_policy" {
   role       = aws_iam_role.app_task.name
   policy_arn = aws_iam_policy.task_ssm_policy.arn
 }
