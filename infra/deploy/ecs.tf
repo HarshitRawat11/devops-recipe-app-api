@@ -34,31 +34,31 @@ resource "aws_iam_role_policy_attachment" "task_execution_role" {
   policy_arn = aws_iam_policy.task_ssm_policy.arn
 }
 
-resource "aws_cloudwatch_log_group" "ecs_task_logs" {
-  name = "${local.prefix}-api"
-}
+# resource "aws_cloudwatch_log_group" "ecs_task_logs" {
+#   name = "${local.prefix}-api"
+# }
 
-resource "aw_ecs_cluster" "main" {
-  name = "${local.prefix}-cluster"
-}
+# resource "aw_ecs_cluster" "main" {
+#   name = "${local.prefix}-cluster"
+# }
 
-resource "aws_ecs_task_definition" "api" {
-  family = "${local.prefix}-api"
-  requires_compatibilities = ["FARGATE"]
-  network_mode = "awsvpc"
-  cpu = 256
-  memory = 512
-  execution_role_arn = aws_iam_role.task_execution_role.arn
-  task_role_arn = aws_iam_role.app_task.arn
+# resource "aws_ecs_task_definition" "api" {
+#   family = "${local.prefix}-api"
+#   requires_compatibilities = ["FARGATE"]
+#   network_mode = "awsvpc"
+#   cpu = 256
+#   memory = 512
+#   execution_role_arn = aws_iam_role.task_execution_role.arn
+#   task_role_arn = aws_iam_role.app_task.arn
 
-  container_definitions = jsondecode([])
+#   container_definitions = jsondecode([])
 
-  volume {
-    name = "static"
-  }
+#   volume {
+#     name = "static"
+#   }
 
-  runtime_platform {
-    operating_system_family = "LINUX"
-    cpu_architecture = "x86_64"
-  }
-}
+#   runtime_platform {
+#     operating_system_family = "LINUX"
+#     cpu_architecture = "x86_64"
+#   }
+# }
