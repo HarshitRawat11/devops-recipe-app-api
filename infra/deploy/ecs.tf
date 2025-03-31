@@ -43,13 +43,13 @@ resource "aw_ecs_cluster" "main" {
 }
 
 resource "aws_ecs_task_definition" "api" {
-  family = "${local.prefix}-api"
+  family                   = "${local.prefix}-api"
   requires_compatibilities = ["FARGATE"]
-  network_mode = "awsvpc"
-  cpu = 256
-  memory = 512
-  execution_role_arn = aws_iam_role.task_execution_role.arn
-  task_role_arn = aws_iam_role.app_task.arn
+  network_mode             = "awsvpc"
+  cpu                      = 256
+  memory                   = 512
+  execution_role_arn       = aws_iam_role.task_execution_role.arn
+  task_role_arn            = aws_iam_role.app_task.arn
 
   container_definitions = jsondecode([])
 
@@ -59,39 +59,39 @@ resource "aws_ecs_task_definition" "api" {
 
   runtime_platform {
     operating_system_family = "LINUX"
-    cpu_architecture = "x86_64"
+    cpu_architecture        = "x86_64"
   }
 }
 
 resource "aws_security_group" "ecs_service" {
   description = "Access rules for the ECS service."
-  name = "${local.prefix}-ecs-service"
-  vpc_id = aws_vpc.main.id
-  
+  name        = "${local.prefix}-ecs-service"
+  vpc_id      = aws_vpc.main.id
+
   # Outbound accessto endpoints
   egress {
-    from_port = 443
-    to_port = 433
-    protocol = "tcp"
+    from_port   = 443
+    to_port     = 433
+    protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"]
   }
 
   # RDS connectivity
   egress {
     from_port = 5432
-    to_port = 5432
-    protocol = "tcp"
+    to_port   = 5432
+    protocol  = "tcp"
     cidr_blocks = [
       aws_subnet.private_a.cidr_block,
       aws_subnet.private_b.cidr_block,
     ]
   }
-  
+
   # NFS Port for EFS volumes
   egress {
     from_port = 2049
-    to_port = 2049
-    protocol = "tcp"
+    to_port   = 2049
+    protocol  = "tcp"
     cidr_blocks = [
       aws_subnet.private_a.cidr_block,
       aws_subnet.private_b.cidr_block,
@@ -101,8 +101,8 @@ resource "aws_security_group" "ecs_service" {
   # HTTP inbound access
   ingress {
     from_port = 8000
-    to_port = 8000
-    protocol = "tcp"
+    to_port   = 8000
+    protocol  = "tcp"
     security_groups = [
       aws_security_group.lb.id
     ]
