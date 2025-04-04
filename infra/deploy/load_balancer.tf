@@ -27,7 +27,7 @@ resource "aws_security_group" "lb" {
 
 resource "aws_lb" "api" {
   name               = "${local.prefix}-lb"
-  load_balancer_type = "Application"
+  load_balancer_type = "application"
   subnets            = [aws_subnet.public_a.id, aws_subnet.public_b.id]
   security_groups    = [aws_security_group.lb.id]
 }

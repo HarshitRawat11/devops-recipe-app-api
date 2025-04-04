@@ -8,7 +8,7 @@ resource "aws_iam_policy" "task_execution_role_policy" {
 }
 
 resource "aws_iam_role" "task_execution_role" {
-  name               = "${local.prefix}-task-execution-roe"
+  name               = "${local.prefix}-task-execution-role"
   assume_role_policy = file("./templates/ecs/task-assume-role-policy.json")
 }
 
@@ -38,7 +38,7 @@ resource "aws_cloudwatch_log_group" "ecs_task_logs" {
   name = "${local.prefix}-api"
 }
 
-resource "aw_ecs_cluster" "main" {
+resource "aws_ecs_cluster" "main" {
   name = "${local.prefix}-cluster"
 }
 
@@ -51,10 +51,14 @@ resource "aws_ecs_task_definition" "api" {
   execution_role_arn       = aws_iam_role.task_execution_role.arn
   task_role_arn            = aws_iam_role.app_task.arn
 
-  container_definitions = jsondecode([])
+  container_definitions = jsondecode("dummy")
 
   volume {
     name = "static"
+  }
+
+  volume {
+    name = "efs-media"
   }
 
   runtime_platform {
