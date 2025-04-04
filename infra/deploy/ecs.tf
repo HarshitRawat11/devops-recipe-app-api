@@ -51,7 +51,42 @@ resource "aws_ecs_task_definition" "api" {
   execution_role_arn       = aws_iam_role.task_execution_role.arn
   task_role_arn            = aws_iam_role.app_task.arn
 
-  container_definitions = jsondecode("dummy")
+  container_definitions = jsonencode([
+    {
+      name              = "proxy"
+      image             = var.ecr_proxy_image
+      essential         = true
+      memoryReservation = 256
+      user              = "nginx"
+      portMappings = [
+        {
+          containerPort = 8000
+          hostPort      = 8000
+        }
+      ]
+      environment = [
+        {
+          name  = "APP_HOST"
+          value = "127.0.0.1"
+        }
+      ]
+      mountPoints = [
+        {
+          readOnly      = true
+          containerPath = "/vol/static"
+          sourceVolume  = "static"
+        }
+      ]
+      logConfiguration = {
+        logDriver = "awslogs"
+        options = {
+          awslogs-group         = aws_cloudwatch_log_group.ecs_task_logs.name
+          awslogs-region        = data.aws_region.current.name
+          awslogs-stream-prefix = "proxy"
+        }
+      }
+    }
+  ])
 
   volume {
     name = "static"
@@ -63,7 +98,7 @@ resource "aws_ecs_task_definition" "api" {
 
   runtime_platform {
     operating_system_family = "LINUX"
-    cpu_architecture        = "x86_64"
+    cpu_architecture        = "X86_64"
   }
 }
 

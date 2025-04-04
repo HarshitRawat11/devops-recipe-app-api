@@ -21,3 +21,7 @@ variable "db_username" {
 variable "db_password" {
   description = "Password for the Terraform database"
 }
+
+variable "ecr_proxy_image" {
+  description = "Password for the Terraform database"
+}
