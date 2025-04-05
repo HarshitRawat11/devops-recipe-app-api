@@ -8,7 +8,7 @@ resource "aws_iam_policy" "task_execution_role_policy" {
 }
 
 resource "aws_iam_role" "task_execution_role" {
-  name               = "${local.prefix}-task-execution-roe"
+  name               = "${local.prefix}-task-execution-role"
   assume_role_policy = file("./templates/ecs/task-assume-role-policy.json")
 }
 
@@ -34,31 +34,149 @@ resource "aws_iam_role_policy_attachment" "task_ssm_policy" {
   policy_arn = aws_iam_policy.task_ssm_policy.arn
 }
 
-# resource "aws_cloudwatch_log_group" "ecs_task_logs" {
-#   name = "${local.prefix}-api"
-# }
+resource "aws_cloudwatch_log_group" "ecs_task_logs" {
+  name = "${local.prefix}-api"
+}
 
-# resource "aw_ecs_cluster" "main" {
-#   name = "${local.prefix}-cluster"
-# }
+resource "aws_ecs_cluster" "main" {
+  name = "${local.prefix}-cluster"
+}
 
 # resource "aws_ecs_task_definition" "api" {
-#   family = "${local.prefix}-api"
+#   family                   = "${local.prefix}-api"
 #   requires_compatibilities = ["FARGATE"]
-#   network_mode = "awsvpc"
-#   cpu = 256
-#   memory = 512
-#   execution_role_arn = aws_iam_role.task_execution_role.arn
-#   task_role_arn = aws_iam_role.app_task.arn
+#   network_mode             = "awsvpc"
+#   cpu                      = 256
+#   memory                   = 512
+#   execution_role_arn       = aws_iam_role.task_execution_role.arn
+#   task_role_arn            = aws_iam_role.app_task.arn
 
-#   container_definitions = jsondecode([])
+#   container_definitions = jsonencode([
+#     {
+#       name = "api"
+#       image = var.ecr_app_image
+#       essential = true
+#       memoryReservation = 256
+#       user = "django-user"
+#       environment = [
+#         {
+#           name = "DJANGO_SECRET_KEY"
+#           value = var.django_secret_key
+#         },
+#         {
+#           name = "DB_HOST"
+#           value = aws_db_instance.main.db_name
+#         },
+#         {
+#           name = "DB_USER"
+#           value = aws_db_instance.main.username
+#         },
+#         {
+#           name = "DB_PASS"
+#           value = aws_db_instance.main.password
+#         },
+#         {
+#           name = "ALLOWED_HOSTS"
+#           value = "*"
+#         }
+#       ]
+#       mountPoints = [
+
+#       ]
+#     },
+#     {
+#       name              = "proxy"
+#       image             = var.ecr_proxy_image
+#       essential         = true
+#       memoryReservation = 256
+#       user              = "nginx"
+#       portMappings = [
+#         {
+#           containerPort = 8000
+#           hostPort      = 8000
+#         }
+#       ]
+#       environment = [
+#         {
+#           name  = "APP_HOST"
+#           value = "127.0.0.1"
+#         }
+#       ]
+#       mountPoints = [
+#         {
+#           readOnly      = true
+#           containerPath = "/vol/static"
+#           sourceVolume  = "static"
+#         }
+#       ]
+#       logConfiguration = {
+#         logDriver = "awslogs"
+#         options = {
+#           awslogs-group         = aws_cloudwatch_log_group.ecs_task_logs.name
+#           awslogs-region        = data.aws_region.current.name
+#           awslogs-stream-prefix = "proxy"
+#         }
+#       }
+#     }
+#   ])
 
 #   volume {
 #     name = "static"
 #   }
 
+#   volume {
+#     name = "efs-media"
+#   }
+
 #   runtime_platform {
 #     operating_system_family = "LINUX"
-#     cpu_architecture = "x86_64"
+#     cpu_architecture        = "X86_64"
 #   }
 # }
+
+resource "aws_security_group" "ecs_service" {
+  description = "Access rules for the ECS service."
+  name        = "${local.prefix}-ecs-service"
+  vpc_id      = aws_vpc.main.id
+
+  # Outbound accessto endpoints
+  egress {
+    from_port   = 443
+    to_port     = 433
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  # RDS connectivity
+  egress {
+    from_port = 5432
+    to_port   = 5432
+    protocol  = "tcp"
+    cidr_blocks = [
+      aws_subnet.private_a.cidr_block,
+      aws_subnet.private_b.cidr_block,
+    ]
+  }
+
+  # NFS Port for EFS volumes
+  egress {
+    from_port = 2049
+    to_port   = 2049
+    protocol  = "tcp"
+    cidr_blocks = [
+      aws_subnet.private_a.cidr_block,
+      aws_subnet.private_b.cidr_block,
+    ]
+  }
+
+  # HTTP inbound access
+  ingress {
+    from_port = 8000
+    to_port   = 8000
+    protocol  = "tcp"
+    security_groups = [
+      aws_security_group.lb.id
+    ]
+  }
+
+}
