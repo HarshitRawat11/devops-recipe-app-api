@@ -219,8 +219,8 @@ resource "aws_ecs_service" "api" {
   # registers ecs tasks with the target group of load balancer
   load_balancer {
     target_group_arn = aws_lb_target_group.api.arn
-    container_name = "proxy"
-    container_port = 8000
+    container_name   = "proxy"
+    container_port   = 8000
   }
 
 }
