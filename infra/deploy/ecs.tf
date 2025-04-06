@@ -1,4 +1,4 @@
-# ECS luster for running app on Fargate
+# ECS cluster for running app on Fargate
 
 resource "aws_iam_policy" "task_execution_role_policy" {
   name        = "${local.prefix}-task-exec-role-policy"
@@ -42,97 +42,113 @@ resource "aws_ecs_cluster" "main" {
   name = "${local.prefix}-cluster"
 }
 
-# resource "aws_ecs_task_definition" "api" {
-#   family                   = "${local.prefix}-api"
-#   requires_compatibilities = ["FARGATE"]
-#   network_mode             = "awsvpc"
-#   cpu                      = 256
-#   memory                   = 512
-#   execution_role_arn       = aws_iam_role.task_execution_role.arn
-#   task_role_arn            = aws_iam_role.app_task.arn
+resource "aws_ecs_task_definition" "api" {
+  family                   = "${local.prefix}-api"
+  requires_compatibilities = ["FARGATE"]
+  network_mode             = "awsvpc"
+  cpu                      = 256
+  memory                   = 512
+  execution_role_arn       = aws_iam_role.task_execution_role.arn
+  task_role_arn            = aws_iam_role.app_task.arn
 
-#   container_definitions = jsonencode([
-#     {
-#       name = "api"
-#       image = var.ecr_app_image
-#       essential = true
-#       memoryReservation = 256
-#       user = "django-user"
-#       environment = [
-#         {
-#           name = "DJANGO_SECRET_KEY"
-#           value = var.django_secret_key
-#         },
-#         {
-#           name = "DB_HOST"
-#           value = aws_db_instance.main.db_name
-#         },
-#         {
-#           name = "DB_USER"
-#           value = aws_db_instance.main.username
-#         },
-#         {
-#           name = "DB_PASS"
-#           value = aws_db_instance.main.password
-#         },
-#         {
-#           name = "ALLOWED_HOSTS"
-#           value = "*"
-#         }
-#       ]
-#       mountPoints = [
+  container_definitions = jsonencode([
+    {
+      name              = "api"
+      image             = var.ecr_app_image
+      essential         = true
+      memoryReservation = 256
+      user              = "django-user"
+      environment = [
+        {
+          name  = "DJANGO_SECRET_KEY"
+          value = var.django_secret_key
+        },
+        {
+          name  = "DB_HOST"
+          value = aws_db_instance.main.address
+        },
+        {
+          name  = "DB_NAME"
+          value = aws_db_instance.main.db_name
+        },
+        {
+          name  = "DB_USER"
+          value = aws_db_instance.main.username
+        },
+        {
+          name  = "DB_PASS"
+          value = aws_db_instance.main.password
+        },
+        {
+          name  = "ALLOWED_HOSTS"
+          value = "*"
+        }
+      ]
+      mountPoints = [
+        {
+          readOnly      = false
+          containerPath = "/vol/web/static"
+          sourceVolume  = "static"
+        }
+      ]
+      logConfiguration = {
+        logDriver = "awslogs"
+        options = {
+          awslogs-group         = aws_cloudwatch_log_group.ecs_task_logs.name
+          awslogs-region        = data.aws_region.current.name
+          awslogs-stream-prefix = "api"
+        }
+      }
+    },
+    {
+      name              = "proxy"
+      image             = var.ecr_proxy_image
+      essential         = true
+      memoryReservation = 256
+      user              = "nginx"
+      portMappings = [
+        {
+          containerPort = 8000
+          hostPort      = 8000
+        }
+      ]
+      environment = [
+        {
+          name  = "APP_HOST"
+          value = "127.0.0.1"
+        }
+      ]
+      mountPoints = [
+        {
+          readOnly      = true
+          containerPath = "/vol/static"
+          sourceVolume  = "static"
+        }
+      ]
+      logConfiguration = {
+        logDriver = "awslogs"
+        options = {
+          awslogs-group         = aws_cloudwatch_log_group.ecs_task_logs.name
+          awslogs-region        = data.aws_region.current.name
+          awslogs-stream-prefix = "proxy"
+        }
+      }
+    }
+  ])
 
-#       ]
-#     },
-#     {
-#       name              = "proxy"
-#       image             = var.ecr_proxy_image
-#       essential         = true
-#       memoryReservation = 256
-#       user              = "nginx"
-#       portMappings = [
-#         {
-#           containerPort = 8000
-#           hostPort      = 8000
-#         }
-#       ]
-#       environment = [
-#         {
-#           name  = "APP_HOST"
-#           value = "127.0.0.1"
-#         }
-#       ]
-#       mountPoints = [
-#         {
-#           readOnly      = true
-#           containerPath = "/vol/static"
-#           sourceVolume  = "static"
-#         }
-#       ]
-#       logConfiguration = {
-#         logDriver = "awslogs"
-#         options = {
-#           awslogs-group         = aws_cloudwatch_log_group.ecs_task_logs.name
-#           awslogs-region        = data.aws_region.current.name
-#           awslogs-stream-prefix = "proxy"
-#         }
-#       }
-#     }
-#   ])
+  volume {
+    name = "static"
+  }
 
-#   volume {
-#     name = "static"
-#   }
+  volume {
+    name = "efs-media"
+  }
 
-#   volume {
-#     name = "efs-media"
-#   }
-
-#   runtime_platform {
-#     operating_system_family = "LINUX"
-#     cpu_architecture        = "X86_64"
-#   }
-# }
+  runtime_platform {
+    operating_system_family = "LINUX"
+    cpu_architecture        = "X86_64"
+  }
+}
 
 resource "aws_security_group" "ecs_service" {
   description = "Access rules for the ECS service."
@@ -177,6 +193,34 @@ resource "aws_security_group" "ecs_service" {
     security_groups = [
       aws_security_group.lb.id
     ]
+  }
+}
+
+resource "aws_ecs_service" "api" {
+  name                   = "${local.prefix}-api"
+  cluster                = aws_ecs_cluster.main.name
+  task_definition        = aws_ecs_task_definition.api.family
+  desired_count          = 1
+  launch_type            = "FARGATE"
+  platform_version       = "1.4.0"
+  enable_execute_command = true
+
+  network_configuration {
+    # assign_public_ip = true
+
+    subnets = [
+      aws_subnet.private_a.id,
+      aws_subnet.private_b.id
+    ]
+
+    security_groups = [aws_security_group.ecs_service.id]
+  }
+
+  # registers ecs tasks with the target group of load balancer
+  load_balancer {
+    target_group_arn = aws_lb_target_group.api.arn
+    container_name   = "proxy"
+    container_port   = 8000
   }
 
 }
