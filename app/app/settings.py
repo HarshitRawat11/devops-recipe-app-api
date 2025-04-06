@@ -35,6 +35,7 @@ ALLOWED_HOSTS.extend(
     )
 )
 if os.environ.get('AWS_EXECUTION_ENV'):
+    # internal ip address of the container
     ALLOWED_HOSTS.append(gethostbyname(gethostname()))
 
 # Application definition
